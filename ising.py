@@ -11,14 +11,16 @@ import subprocess
 class SquareLattice:
 
 
-	def __init__(self, T , initial_conditions , N , alpha , steps):
+	def __init__(self, T , initial_conditions , N , alpha , steps , total_epochs , equilibration):
 
 		self.size = N
- 		self.T = T
+		self.T = T
 		self.initial = initial_conditions
 		self.alpha = alpha
 		self.steps = steps
+		self.equilibration = equilibration
 		self.epoch = 0
+		self.total_epochs = total_epochs
 		self.history = []
 		self.magnetizations = []
 		self.lattice = self._createLattice()
@@ -42,22 +44,24 @@ class SquareLattice:
 	def calculateH(self , i , j):
 
 		mag = self.calculateMag()
-		self.magnetizations.append(mag)
 		mat = self.lattice
-		return mat[i,j]*(mat[(i+1)%self.size,j] + mat[(i-1 + self.size)%self.size,j] + mat[i, (j+1)%self.size] + mat[i , (j-1 + self.size)%self.size]) - self.alpha*self.lattice[i,j]*np.abs(mag)
+		return mat[i,j]*(mat[(i+1)%self.size,j] + mat[(i-1 + self.size)%self.size,j] + mat[i, (j+1)%self.size] + mat[i , (j-1 + self.size)%self.size]) - self.alpha*self.lattice[i,j]*mag , mag
 
-	def updateSpin(self, i, j):
+	def updateSpin(self):
 
 		beta = 1/self.T
 		for x in range(self.steps):
-
-				h = self.calculateH(i,j)
+				i,j = np.random.randint(0 , self.size , 2)
+				h , mag = self.calculateH(i,j)
 				p = 1/(1+np.exp(-2*beta*h))
 				z = np.random.rand()
 				self.lattice[i,j] = np.sign(p -z)
-#		print(plt.imshow(self.lattice).make_image(renderer="None"))
 
-		self.history.append(self.lattice)
+		if self.epoch >= int(self.total_epochs*self.equilibration):
+			self.magnetizations.append(mag)
+			self.history.append(self.lattice)
+		self.epoch += 1
+#		self.history.append(self.lattice)
 
 
 
@@ -65,6 +69,7 @@ def generate_video(img , folder):
 
 
 	for i in range(len(img)):
+		print("Image -> " + str(i) + " / " + str(len(img)))
 		plt.imshow(img[i])
 		plt.axis("off")
 		plt.title("Epoch -> " +str(i))
@@ -80,21 +85,25 @@ def runSimulation(lattice , epochs):
 
 	for x in range(epochs):
 		print("Epoch " , x , "----> " , epochs)
-		i , j= np.random.randint(0 , lattice.size , 2)
-		lattice.updateSpin(i,j)
+		lattice.updateSpin()
 		#print(lattice.lattice)
-	#folder = "/home/xabierga/Ising_Econophysics/TMP_IMG"
-	#generate_video(lattice.history , folder)
+	folder = "/home/xabierga/Ising_Econophysics/TMP_IMG"
+	generate_video(lattice.history , folder)
 	return
 
 
 
 
-steps = 50
-Ising = SquareLattice(1.5 , "random" , 32 , 4 , 50)
-ep = 600
-print(Ising.lattice)
+steps = 100
+ep = 10000
+alpha = 20
+T = 1
+size = 32
+Ising = SquareLattice(T , "random" , size , alpha , steps , ep , 0.95)
+
+
 runSimulation(Ising , ep)
-print(np.diff(Ising.magnetizations))
-plt.plot(range(ep*steps - 1) , np.diff(np.log(np.abs(Ising.magnetizations) + 0.0000001)) ,"k")
+
+
+plt.plot(range(int(Ising.total_epochs*Ising.equilibration) , Ising.total_epochs  -1) , np.diff(np.log(np.abs(Ising.magnetizations) + 0.0000001)) ,"k")
 plt.show(True)
