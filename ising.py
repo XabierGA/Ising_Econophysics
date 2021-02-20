@@ -1,11 +1,13 @@
+from scipy.stats import norm
+import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import os
 import glob
-import subprocess 
-#from IPython.display import clear_output
-#import 
+import subprocess
+
+sns.set_style("darkgrid")
 
 
 class SquareLattice:
@@ -45,7 +47,7 @@ class SquareLattice:
 
 		mag = self.calculateMag()
 		mat = self.lattice
-		return mat[i,j]*(mat[(i+1)%self.size,j] + mat[(i-1 + self.size)%self.size,j] + mat[i, (j+1)%self.size] + mat[i , (j-1 + self.size)%self.size]) - self.alpha*self.lattice[i,j]*mag , mag
+		return (mat[(i+1)%self.size,j] + mat[(i-1 + self.size)%self.size,j] + mat[i, (j+1)%self.size] + mat[i , (j-1 + self.size)%self.size]) - self.alpha*self.lattice[i,j]*np.abs(mag) , mag
 
 	def updateSpin(self):
 
@@ -56,10 +58,9 @@ class SquareLattice:
 				p = 1/(1+np.exp(-2*beta*h))
 				z = np.random.rand()
 				self.lattice[i,j] = np.sign(p -z)
-
 		if self.epoch >= int(self.total_epochs*self.equilibration):
 			self.magnetizations.append(mag)
-			self.history.append(self.lattice)
+			self.history.append(np.copy(self.lattice))
 		self.epoch += 1
 #		self.history.append(self.lattice)
 
@@ -67,18 +68,18 @@ class SquareLattice:
 
 def generate_video(img , folder):
 
-
-	for i in range(len(img)):
-		print("Image -> " + str(i) + " / " + str(len(img)))
-		plt.imshow(img[i])
-		plt.axis("off")
-		plt.title("Epoch -> " +str(i))
-		plt.savefig(folder + "/file%02d.png" % i)
-
-	os.chdir(folder)
-	subprocess.call(['ffmpeg', '-framerate', '100', '-i', 'file%02d.png', '-r', '30', '-pix_fmt', 'yuv420p','video_name.mp4'])
-	for file_name in glob.glob("*.png"):
-		os.remove(file_name)
+	ffmpeg = animation.writers["ffmpeg"]
+	writer = ffmpeg(fps=100)
+	fig = plt.figure()
+	with writer.saving(fig , folder + "/test_video.mp4" , 100):
+		for i in range(len(img)):
+			print("Image -> " + str(i) + " / " + str(len(img)))
+			plot = plt.imshow(img[i])
+			plt.axis("off")
+			plt.title("Epoch -> " +str(i))
+			writer.grab_frame()
+			plot.remove()
+	plt.close("all")
 
 
 def runSimulation(lattice , epochs):
@@ -88,7 +89,7 @@ def runSimulation(lattice , epochs):
 		lattice.updateSpin()
 		#print(lattice.lattice)
 	folder = "/home/xabierga/Ising_Econophysics/TMP_IMG"
-	generate_video(lattice.history , folder)
+	#generate_video(lattice.history , folder)
 	return
 
 
@@ -99,11 +100,14 @@ ep = 10000
 alpha = 20
 T = 1
 size = 32
-Ising = SquareLattice(T , "random" , size , alpha , steps , ep , 0.95)
+Ising = SquareLattice(T , "random" , size , alpha , steps , ep , 0.2)
 
 
 runSimulation(Ising , ep)
 
-
-plt.plot(range(int(Ising.total_epochs*Ising.equilibration) , Ising.total_epochs  -1) , np.diff(np.log(np.abs(Ising.magnetizations) + 0.0000001)) ,"k")
+fig , (ax1,ax2,ax3) = plt.subplots(1,3 , figsize=(20,10))
+#plt.plot(range(int(Ising.total_epochs*Ising.equilibration) , Ising.total_epochs  -1) , np.diff(np.log(np.abs(Ising.magnetizations) + 0.0000001)) ,"k")
+ax1.plot(range(int(Ising.total_epochs*Ising.equilibration) , Ising.total_epochs ) , Ising.magnetizations)
+ax3 = sns.distplot(np.diff(Ising.magnetizations) , kde = False , fit = norm)
+ax2.plot(range(int(Ising.total_epochs*Ising.equilibration) , Ising.total_epochs - 1) , np.diff(Ising.magnetizations))
 plt.show(True)
