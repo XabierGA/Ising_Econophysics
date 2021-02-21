@@ -3,9 +3,11 @@ import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import os
-import glob
-import subprocess
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
+from mpl_toolkits.axes_grid1.inset_locator import mark_inset
+
+
+np.random.seed(24)
 
 sns.set_style("darkgrid")
 
@@ -74,9 +76,11 @@ def generate_video(img , folder):
 	with writer.saving(fig , folder + "/test_video.mp4" , 100):
 		for i in range(len(img)):
 			print("Image -> " + str(i) + " / " + str(len(img)))
-			plot = plt.imshow(img[i])
+			plot = plt.imshow(img[i] , cmap="viridis")
 			plt.axis("off")
 			plt.title("Epoch -> " +str(i))
+			if i == 1000 or i == 3000 or i == 5000 or i ==7000:
+				plt.savefig("epoch_" + str(i) + ".png")
 			writer.grab_frame()
 			plot.remove()
 	plt.close("all")
@@ -87,17 +91,48 @@ def runSimulation(lattice , epochs):
 	for x in range(epochs):
 		print("Epoch " , x , "----> " , epochs)
 		lattice.updateSpin()
-		#print(lattice.lattice)
 	folder = "/home/xabierga/Ising_Econophysics/TMP_IMG"
-	#generate_video(lattice.history , folder)
+	generate_video(lattice.history , folder)
 	return
 
+def plot_results(lattice):
+
+	fig , (ax1,ax2,ax3) = plt.subplots(3,1 , figsize=(8,12))
+	plt.subplots_adjust(hspace = 0.5)
+	ax1.set_title("2D Ising Model simulation , 32x32 lattice") 
+	ax1.plot(range(int(lattice.total_epochs*lattice.equilibration) , lattice.total_epochs ) , lattice.magnetizations , color="black")
+	ax1.set_ylabel("$M_{(t)}$")
+	ax1.set_xlabel("$\Delta t$")
+	ax1.legend()
+	ax3.hist(np.diff(lattice.magnetizations)  , bins=45 , density=True, color="dodgerblue" , label="Empirical Distribution")
+	mu , std = norm.fit(np.diff(lattice.magnetizations))
+	xmin  , xmax = np.min(np.diff(lattice.magnetizations)) , np.max(np.diff(lattice.magnetizations))
+	x = np.linspace(xmin , xmax , 100)
+	p = norm.pdf(x , mu , std)
+	ax3.plot(x , p ,'k' , linewidth=2 , label = "Gaussian Fit")
+	ax3.legend(loc=2)
+	ax3.set_xlabel("$R_{(t)}$")
+	axins3 = zoomed_inset_axes(ax3, zoom = 5, loc=1)
+	axins3.hist(np.diff(lattice.magnetizations) , bins=45 , density = True , color="dodgerblue" , label="Fat Tails")
+	axins3.plot(x,p , 'k')
+	axins3.legend(loc=2)
+	x1, x2, y1, y2 = 0.019,0.025,0,7.5
+	axins3.set_xlim(x1, x2)
+	axins3.set_ylim(y1, y2)
+	mark_inset(ax3, axins3, loc1=4, loc2=3, fc="none", ec="0.5")
+
+	ax2.set_xlabel("$\Delta t$")
+	ax2.set_ylabel("$R_{(t)}$")
+	ax2.plot(range(int(lattice.total_epochs*Ising.equilibration) , lattice.total_epochs - 1) , np.diff(lattice.magnetizations) , color="black" )
+	ax2.legend()
+	plt.savefig("sim_result.pdf")
+	plt.show(True)
 
 
 
 steps = 100
 ep = 10000
-alpha = 20
+alpha = 15
 T = 1
 size = 32
 Ising = SquareLattice(T , "random" , size , alpha , steps , ep , 0.2)
@@ -105,9 +140,5 @@ Ising = SquareLattice(T , "random" , size , alpha , steps , ep , 0.2)
 
 runSimulation(Ising , ep)
 
-fig , (ax1,ax2,ax3) = plt.subplots(1,3 , figsize=(20,10))
-#plt.plot(range(int(Ising.total_epochs*Ising.equilibration) , Ising.total_epochs  -1) , np.diff(np.log(np.abs(Ising.magnetizations) + 0.0000001)) ,"k")
-ax1.plot(range(int(Ising.total_epochs*Ising.equilibration) , Ising.total_epochs ) , Ising.magnetizations)
-ax3 = sns.distplot(np.diff(Ising.magnetizations) , kde = False , fit = norm)
-ax2.plot(range(int(Ising.total_epochs*Ising.equilibration) , Ising.total_epochs - 1) , np.diff(Ising.magnetizations))
-plt.show(True)
+
+#plot_results(Ising)
