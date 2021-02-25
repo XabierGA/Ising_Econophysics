@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
-
+from statsmodels.graphics.tsaplots import plot_acf
 
 np.random.seed(24)
 
@@ -92,7 +92,7 @@ def runSimulation(lattice , epochs):
 		print("Epoch " , x , "----> " , epochs)
 		lattice.updateSpin()
 	folder = "/home/xabierga/Ising_Econophysics/TMP_IMG"
-	generate_video(lattice.history , folder)
+	#generate_video(lattice.history , folder)
 	return
 
 def plot_results(lattice):
@@ -129,6 +129,15 @@ def plot_results(lattice):
 	plt.show(True)
 
 
+def get_acf(lattice):
+	log_returns = np.diff(lattice.magnetizations)
+	plot_acf(log_returns , lags=30)
+	plt.title("Simulation Log returns autocorrelation")
+	plt.xlabel("Lag")
+	plt.ylabel("ACF")
+	plt.savefig("simulation_acf.pdf")
+	plt.show()
+
 
 steps = 100
 ep = 10000
@@ -142,3 +151,4 @@ runSimulation(Ising , ep)
 
 
 #plot_results(Ising)
+get_acf(Ising)
